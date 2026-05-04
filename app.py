@@ -6,6 +6,7 @@ from typing import Optional
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 app = FastAPI()
@@ -14,8 +15,7 @@ security = HTTPBasic()
 # Configuration & Persistence
 STATE_FILE = Path("/app/data/ips.json")
 CF_TOKEN = os.getenv("CF_TOKEN")
-CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
-CF_LIST_ID = os.getenv("CF_LIST_ID")
+CF_ZONE_ID = os.getenv("CF_ZONE_ID")
 AUTH_USER = os.getenv("DDNS_USER", "admin")
 AUTH_PASS = os.getenv("DDNS_PASS", "password")
 
@@ -29,6 +29,54 @@ def load_state():
 def save_state(state):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(json.dumps(state))
+
+
+async def update_cloudflare_dns(
+    name: str,
+    content: str,
+    record_type: str = "A",
+    ttl: int = 1,
+    proxied: bool = False,
+) -> bool:
+    """Update or create a DNS record in Cloudflare. Returns True on success."""
+    cf_url = f"https://api.cloudflare.com/client/v4/zones/{CF_ZONE_ID}/dns_records"
+    headers = {
+        "Authorization": f"Bearer {CF_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    record_payload = {
+        "type": record_type,
+        "name": name,
+        "content": content,
+        "ttl": ttl,
+        "proxied": proxied,
+    }
+
+    async with httpx.AsyncClient() as client:
+        list_resp = await client.get(
+            cf_url, params={"type": record_type, "name": name}, headers=headers
+        )
+        list_data = list_resp.json()
+
+        if not list_data.get("success"):
+            print(f"Cloudflare API Error (list): {list_resp.text}")
+            return False
+
+        records = list_data.get("result", [])
+        if records:
+            record_id = records[0]["id"]
+            resp = await client.put(
+                f"{cf_url}/{record_id}", json=record_payload, headers=headers
+            )
+        else:
+            resp = await client.post(cf_url, json=record_payload, headers=headers)
+
+        if resp.json().get("success"):
+            print(f"Successfully updated Cloudflare DNS for {name}: {content}")
+            return True
+
+        print(f"Cloudflare API Error: {resp.text}")
+        return False
 
 
 def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
@@ -59,25 +107,16 @@ async def update_ip(
     if state.get(hostname) == ip_to_register:
         return "nochg"
 
-    # Update local state
-    state[hostname] = ip_to_register
-    save_state(state)
+    if await update_cloudflare_dns(hostname, ip_to_register):
+        state[hostname] = ip_to_register
+        save_state(state)
+        return f"good {ip_to_register}"
 
-    # Push all known router IPs to Cloudflare WAF List
-    payload = [{"ip": ip, "comment": f"Router: {host}"} for host, ip in state.items()]
+    return "911"  # Standard DDNS error code for server failure
 
-    async with httpx.AsyncClient() as client:
-        cf_url = f"https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/rules/lists/{CF_LIST_ID}/items"
-        headers = {
-            "Authorization": f"Bearer {CF_TOKEN}",
-            "Content-Type": "application/json",
-        }
 
-        response = await client.put(cf_url, json=payload, headers=headers)
-
-        if response.status_code == 200:
-            print(f"Successfully updated Cloudflare for {hostname}: {ip_to_register}")
-            return f"good {ip_to_register}"
-        else:
-            print(f"Cloudflare API Error: {response.text}")
-            return "911"  # Standard DDNS error code for server failure
+@app.get("/ips")
+async def download_ips(user: str = Depends(get_current_user)):
+    if not STATE_FILE.exists():
+        raise HTTPException(status_code=404, detail="No IP records found")
+    return FileResponse(STATE_FILE, media_type="application/json", filename="ips.json")

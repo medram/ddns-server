@@ -10,8 +10,7 @@ services:
       - "8080:8000"
     restart: unless-stopped
     environment:
-      - CF_ACCOUNT_ID=your_id
-      - CF_LIST_ID=your_list_id
+      - CF_ZONE_ID=your_zone_id
       - CF_TOKEN=your_token
       - DDNS_USER=office_admin
       - DDNS_PASS=secret_pass
