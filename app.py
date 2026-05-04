@@ -36,6 +36,7 @@ async def update_cloudflare_dns(
     record_type: str = "A",
     ttl: int = 1,
     proxied: bool = False,
+    comment: Optional[str] = None,
 ) -> bool:
     """Update or create a DNS record in Cloudflare. Returns True on success."""
     cf_url = f"https://api.cloudflare.com/client/v4/zones/{CF_ZONE_ID}/dns_records"
@@ -50,6 +51,8 @@ async def update_cloudflare_dns(
         "ttl": ttl,
         "proxied": proxied,
     }
+    if comment is not None:
+        record_payload["comment"] = comment
 
     async with httpx.AsyncClient() as client:
         list_resp = await client.get(
@@ -106,7 +109,9 @@ async def update_ip(
     if state.get(hostname) == ip_to_register:
         return "nochg"
 
-    if await update_cloudflare_dns(hostname, ip_to_register):
+    if await update_cloudflare_dns(
+        hostname, ip_to_register, comment=f"Updated by DDNS server for {hostname}"
+    ):
         state[hostname] = ip_to_register
         save_state(state)
         return f"good {ip_to_register}"
