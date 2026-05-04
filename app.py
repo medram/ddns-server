@@ -6,7 +6,6 @@ from typing import Optional
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Query, status
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 app = FastAPI()
@@ -116,7 +115,7 @@ async def update_ip(
 
 
 @app.get("/ips")
-async def download_ips(user: str = Depends(get_current_user)):
+async def get_ips(user: str = Depends(get_current_user)):
     if not STATE_FILE.exists():
         raise HTTPException(status_code=404, detail="No IP records found")
-    return FileResponse(STATE_FILE, media_type="application/json", filename="ips.json")
+    return load_state()
