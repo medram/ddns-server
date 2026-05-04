@@ -21,8 +21,8 @@ This server implements the **No-IP / DynDNS protocol** (`/nic/update`), making i
 1. Clone the repo:
 
    ```bash
-   git clone https://github.com/medram/ddns.git
-   cd ddns
+   git clone https://github.com/medram/ddns-server.git
+   cd ddns-server
    ```
 
 2. Edit the environment variables in `docker-compose.yml`:
