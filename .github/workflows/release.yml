@@ -1,6 +1,7 @@
 name: New GitHub Release
 
 on:
+  workflow_call:
   push:
     tags:
       - "*"
