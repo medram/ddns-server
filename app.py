@@ -5,7 +5,8 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi.responses import PlainTextResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 app = FastAPI()
@@ -96,27 +97,31 @@ def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
 
 @app.get("/nic/update")
 async def update_ip(
+    request: Request,  # Add request to get the real client IP
     hostname: str = Query(...),
     myip: Optional[str] = Query(None),
     user: str = Depends(get_current_user),
 ):
-    # If router doesn't send IP, use the connection's source IP
-    ip_to_register = myip if myip else "source_ip"
+    # If the router didn't send 'myip', grab its actual public IP from the request
+    # This replaces your "source_ip" string with the real IP address
+    ip_to_register = myip if myip else request.client.host
 
     state = load_state()
 
     # Avoid unnecessary API calls if the IP hasn't changed
     if state.get(hostname) == ip_to_register:
-        return "nochg"
+        # Returns raw: nochg 1.2.3.4
+        return PlainTextResponse(f"nochg {ip_to_register}")
 
     if await update_cloudflare_dns(
         hostname, ip_to_register, comment=f"Updated by DDNS server for {hostname}"
     ):
         state[hostname] = ip_to_register
         save_state(state)
-        return f"good {ip_to_register}"
+        # Returns raw: good 1.2.3.4
+        return PlainTextResponse(f"good {ip_to_register}")
 
-    return "911"  # Standard DDNS error code for server failure
+    return PlainTextResponse("911")  # Server error
 
 
 @app.get("/ips")
