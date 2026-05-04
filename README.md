@@ -42,6 +42,26 @@ This server implements the **No-IP / DynDNS protocol** (`/nic/update`), making i
 
 The server listens on port **8080**.
 
+## Docker run
+
+If you prefer not to use Docker Compose, you can run the container directly:
+
+```bash
+docker run -d \
+  --name ddns-receiver \
+  --restart unless-stopped \
+  -p 8080:8000 \
+  -v $(pwd)/data:/app/data \
+  -e CF_ACCOUNT_ID=your_id \
+  -e CF_LIST_ID=your_list_id \
+  -e CF_TOKEN=your_token \
+  -e DDNS_USER=office_admin \
+  -e DDNS_PASS=secret_pass \
+  mrmed/ddns-server:latest
+```
+
+The server listens on port **8080**.
+
 ## Router configuration
 
 Configure your router's DDNS client with:
