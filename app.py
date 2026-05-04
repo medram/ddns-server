@@ -104,7 +104,7 @@ async def update_ip(
 ):
     # If the router didn't send 'myip', grab its actual public IP from the request
     # This replaces your "source_ip" string with the real IP address
-    ip_to_register = myip if myip else request.client.host
+    ip_to_register = myip if myip else request.client.host  # type: ignore
 
     state = load_state()
 
