@@ -2,6 +2,8 @@
 
 A lightweight DDNS receiver that keeps a **Cloudflare WAF IP List** in sync with your dynamic IP(s). Deploy it on any server, point your router's DDNS client at it, and Cloudflare will always have your current IP(s) allowlisted.
 
+This server implements the **No-IP / DynDNS protocol** (`/nic/update`), making it a drop-in replacement for No-IP on any router that supports custom DDNS servers.
+
 ## How it works
 
 1. Your router sends a standard DDNS update request to this server (`GET /nic/update`).
@@ -51,7 +53,7 @@ Configure your router's DDNS client with:
 | Username | value of `DDNS_USER`                            |
 | Password | value of `DDNS_PASS`                            |
 
-> Most routers (e.g. MikroTik, ASUS, GL.iNet) support custom DDNS URLs using the DynDNS protocol — this server is fully compatible.
+> This server is compatible with the **No-IP protocol** (`/nic/update`). Any router that supports No-IP or a custom DynDNS server (e.g. MikroTik, ASUS, GL.iNet, OpenWrt) can use it as a direct replacement — just point the DDNS server address to your own host.
 
 ## Running locally (without Docker)
 
